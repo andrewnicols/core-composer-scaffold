@@ -1,0 +1,21 @@
+{
+    "name": "moodle/core-composer-scaffold",
+    "description": "A scaffolding tool for Composer-based Moodle installations",
+    "type": "composer-plugin",
+    "require": {
+        "composer-plugin-api": "^2.0",
+        "php": ">=8.3.0"
+    },
+    "require-dev": {
+        "composer/composer": "^2"
+    },
+    "license": "GPL-3.0-or-later",
+    "autoload": {
+        "psr-4": {
+            "Moodle\\Composer\\Plugin\\Scaffold\\": "src/"
+        }
+    },
+    "extra": {
+        "class": "Moodle\\Composer\\Plugin\\Scaffold\\Plugin"
+    }
+}
