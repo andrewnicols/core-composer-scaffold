@@ -49,6 +49,13 @@ abstract class BaseGenerator
         return $this->composer->getPackage()->getName();
     }
 
+    protected function getRootPackagePath(): string
+    {
+        return (new Filesystem())->normalizePath(
+            dirname($this->getVendorPath())
+        );
+    }
+
     /**
      * Get the Moodle installation path.
      *
