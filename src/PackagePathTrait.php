@@ -2,8 +2,6 @@
 
 namespace Moodle\Composer\Plugin\Scaffold;
 
-use Composer\Composer;
-use Composer\IO\IOInterface;
 use Composer\Util\Filesystem;
 
 trait PackagePathTrait
@@ -74,6 +72,11 @@ trait PackagePathTrait
         return $fs->findShortestPath($from, $to, $directories);
     }
 
+    /**
+     * Get the name of the basedir into which Moodle is installed.
+     *
+     * @return string
+     */
     protected function getBaseDirName(): string
     {
         return basename(dirname($this->getVendorPath()));

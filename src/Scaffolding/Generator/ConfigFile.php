@@ -178,36 +178,21 @@ class ConfigFile extends BaseGenerator
             }
         }
 
-        // Ask for site details (site name, admin user, password, etc).
-        $dbdriver = $this->getDatabaseDriver();
-
-        $dbuser = $this->getDatabaseUsername();
-        $dbpass = $this->getDatabasePassword();
-        $dbname = $this->getDatabaseName();
-        $dbhost = $this->getDatabaseHost();
-        $dbprefix = $this->getDatabasePrefix();
-
-        $wwwroot = $this->getWwwRoot();
-        $dataroot = $this->io->ask('Enter the Moodle data directory path (default: moodledata): ', 'moodledata');
-
+        // Database credentials.
         $this->setDatabaseConfig(
-            dbtype: $dbdriver,
-            dbuser: $dbuser,
-            dbpass: $dbpass,
-            dbname: $dbname,
-            dbhost: $dbhost,
-            prefix: $dbprefix,
+            dbtype: $this->getDatabaseDriver(),
+            dbuser: $this->getDatabaseUsername(),
+            dbpass: $this->getDatabasePassword(),
+            dbname: $this->getDatabaseName(),
+            dbhost: $this->getDatabaseHost(),
+            prefix: $this->getDatabasePrefix(),
         );
 
+        // Site configuration.
         $this->setSiteConfig(
-            wwwroot: $wwwroot,
-            dataroot: realpath($dataroot),
+            wwwroot: $this->getWwwRoot(),
+            dataroot: $this->getDataRoot(),
         );
-
-        if (!file_exists($dataroot)) {
-            mkdir($dataroot, 0770, true);
-            $this->io->write("Created dataroot directory at: {$dataroot}");
-        }
 
         $this->generate();
         $this->io->write('Moodle configuration file generated successfully.');
@@ -305,5 +290,30 @@ class ConfigFile extends BaseGenerator
                 return rtrim($answer, '/');
             },
         );
+    }
+
+    protected function getDataRoot(): string
+    {
+        if ($_ENV['MOODLE_DATAROOT'] ?? '' !== '') {
+            $dataroot = rtrim($_ENV['MOODLE_DATAROOT'], '/');
+            $dataroot = str_replace('[NAME]', $this->getBaseDirName(), $dataroot);
+        } else {
+            $dataroot = $this->io->ask(
+                'Enter the Moodle data directory path (default: data): ',
+                'data'
+            );
+        }
+
+        $filesystem = new Filesystem();
+        if ($filesystem->isAbsolutePath($dataroot) === false) {
+            $dataroot = $this->getRootPackagePath() . '/' . $dataroot;
+        }
+        $dataroot = $filesystem->normalizePath($dataroot);
+
+        $filesystem->ensureDirectoryExists($dataroot);
+        $permissions = octdec(2777);
+        chmod($dataroot, $permissions);
+
+        return $dataroot;
     }
 }

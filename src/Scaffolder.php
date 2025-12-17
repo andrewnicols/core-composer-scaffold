@@ -20,7 +20,6 @@ use Composer\Composer;
 use Composer\IO\IOInterface;
 use Moodle\Composer\Plugin\Scaffold\Scaffolding\Generator;
 use Symfony\Component\Dotenv\Dotenv;
-use Symfony\Component\Dotenv\Exception\PathException;
 use Symfony\Component\Process\Process;
 
 /**
@@ -49,6 +48,7 @@ class Scaffolder
     public function __construct(
         /** @var Composer The Composer service. */
         protected Composer $composer,
+
         /** @var IOInterface The Composer I/O service. */
         protected IOInterface $io,
     ) {
@@ -97,6 +97,9 @@ class Scaffolder
         $dispatcher->dispatchScript(self::POST_MOODLE_SCAFFOLD);
     }
 
+    /**
+     * Run the Moodle installer.
+     */
     public function installMoodle(): void
     {
         $installRequested = $this->io->askConfirmation(
@@ -195,6 +198,11 @@ class Scaffolder
         (new Generator\ConfigFile($this->composer, $this->io))->generateConfigurationFile();
     }
 
+    /**
+     * Get the ASCII Moodle Logo.
+     *
+     * @return string
+     */
     protected function asciiHeader(): string
     {
         return <<<HEADER
@@ -207,6 +215,9 @@ class Scaffolder
         HEADER;
     }
 
+    /**
+     * Load settings from env.
+     */
     protected function loadEnvFile(): void
     {
         $dotenv = new Dotenv();
@@ -220,10 +231,9 @@ class Scaffolder
         ];
 
         foreach ($files as $file) {
-            if (file_exists($file) === false) {
-                continue;
+            if (file_exists($file)) {
+                $dotenv->load($file);
             }
-            $dotenv->load($file);
         }
     }
 }
