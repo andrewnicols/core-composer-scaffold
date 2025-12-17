@@ -16,6 +16,8 @@
 
 namespace Moodle\Composer\Plugin\Scaffold\Scaffolding\Generator;
 
+use Composer\Util\Filesystem;
+
 /**
  * Moodle Config File Generator.
  */
@@ -104,7 +106,7 @@ class ConfigFile extends BaseGenerator
         string $dataroot,
     ): static {
         $this->wwwroot = $wwwroot;
-        $this->dataroot = $dataroot;
+        $this->dataroot = (new Filesystem())->normalizePath($dataroot);
 
         return $this;
     }
@@ -146,4 +148,96 @@ class ConfigFile extends BaseGenerator
 
         TEMPLATE;
     }
+
+    /**
+     * Generate the Moodle configuration file.
+     *
+     * @return void
+     */
+    public function generateConfigurationFile(): void
+    {
+        $this->io->write('Generating Moodle configuration file...');
+
+        if (!$this->io->isInteractive()) {
+            $this->io->write('<error>Non-interactive mode detected. Skipping configuration file generation to avoid incomplete setup.</error>');
+            return;
+        }
+
+        if ($this->checkFileExists()) {
+            $this->io->write('<warning>Configuration file already exists. Aborting to prevent overwriting existing configuration.</warning>');
+            $overwrite = $this->io->askConfirmation(
+                '<question>Do you want to overwrite the existing configuration file? (y/N) </question>',
+                 false
+            );
+
+            if ($overwrite) {
+                $this->io->write('<warning>Overwriting existing configuration file as per user request.</warning>');
+            } else {
+                $this->io->write('<error>Aborting configuration file generation.</error>');
+                return;
+            }
+        }
+
+        // Ask for site details (site name, admin user, password, etc).
+        $dbdriver = $this->io->select(
+            'What database driver are you using?',
+            [
+                'mariadb' => 'MariaDB (mariadb)',
+                'mysqli' => 'MySQL Improved (mysqli)',
+                'pgsql' => 'PostgreSQL (pgsql)',
+                'sqlsrv' => 'Microsoft SQL Server (sqlsrv)',
+                'auroramysql' => 'Amazon Aurora MySQL (auroramysql)',
+            ],
+            'pgsql',
+        );
+
+        $dbuser = $this->io->askAndHideAnswer('Enter the database username: ') ?? '';
+        $dbpass = $this->io->askAndHideAnswer('Enter the database password: ') ?? '';
+        $dbname = $this->io->askAndValidate(
+            'Enter the database name: ',
+            function ($answer)  {
+                if (empty($answer)) {
+                    throw new \RuntimeException('Database name cannot be empty.');
+                }
+                return $answer;
+            },
+        );
+
+        $dbhost = $this->io->ask('Enter the database host (default: localhost): ', 'localhost');
+        $dbprefix = $this->io->ask('Enter the database table prefix (default: mdl_): ', 'mdl_');
+
+        $wwwroot = $this->io->askAndValidate(
+            'Enter the web root URL (for example, https://moodle.example.com): ',
+            function ($answer) {
+                if (empty($answer) || !filter_var($answer, FILTER_VALIDATE_URL)) {
+                    throw new \RuntimeException('Please enter a valid URL for the web root.');
+                }
+                return rtrim($answer, '/');
+            },
+        );
+        $dataroot = $this->io->ask('Enter the Moodle data directory path (default: moodledata): ', 'moodledata');
+
+        $this->setDatabaseConfig(
+            dbtype: $dbdriver,
+            dbuser: $dbuser,
+            dbpass: $dbpass,
+            dbname: $dbname,
+            dbhost: $dbhost,
+            prefix: $dbprefix,
+        );
+
+        $this->setSiteConfig(
+            wwwroot: $wwwroot,
+            dataroot: realpath($dataroot),
+        );
+
+        if (!file_exists($dataroot)) {
+            mkdir($dataroot, 0770, true);
+            $this->io->write("Created dataroot directory at: {$dataroot}");
+        }
+
+        $this->generate();
+        $this->io->write('Moodle configuration file generated successfully.');
+    }
+
 }
