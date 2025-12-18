@@ -30,7 +30,7 @@ class ConfigureMoodleCommand extends \Composer\Command\BaseCommand
      * {@inheritdoc}
      */
     #[\Override]
-    protected function configure()
+    protected function configure(): void
     {
         $this
             ->setName('moodle:configure')
