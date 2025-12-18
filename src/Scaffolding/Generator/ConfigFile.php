@@ -314,7 +314,7 @@ class ConfigFile extends BaseGenerator
             return null;
         }
 
-        if ($_ENV[$name] !== '') {
+        if ($_ENV[$name] === '') {
             return null;
         }
 
