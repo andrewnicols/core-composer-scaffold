@@ -22,7 +22,6 @@
         "class": "Moodle\\Composer\\Scaffold\\Plugin"
     },
     "scripts": {
-        "test": "@php phpunit",
         "phpstan": "@php phpstan analyse"
     }
 
