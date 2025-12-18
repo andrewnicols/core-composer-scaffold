@@ -1,4 +1,5 @@
 <?php
+
 // This file is part of Moodle - http://moodle.org/
 //
 // Moodle is free software: you can redistribute it and/or modify
@@ -20,7 +21,6 @@ use Composer\Composer;
 use Composer\IO\IOInterface;
 use Moodle\Composer\Plugin\Scaffold\Scaffolding\Generator;
 use Symfony\Component\Dotenv\Dotenv;
-use Symfony\Component\Process\Process;
 
 /**
  * Service to scaffold Moodle core files.
@@ -38,6 +38,9 @@ class Scaffolder
      * Event name dispatched after scaffolding ends.
      */
     public const POST_MOODLE_SCAFFOLD = 'moodle-post-scaffold';
+
+    /** @var bool Whether the env file has been loaded. */
+    protected bool $envLoaded = false;
 
     /**
      * Constructor.
@@ -71,6 +74,7 @@ class Scaffolder
         // Generate the Moodle Configuration Shim file.
         (new Generator\ShimConfigFile($this->composer, $this->io))->generate();
 
+        // Attempt to generate the Moodle configuration file.
         $configFile = new Generator\ConfigFile($this->composer, $this->io);
         if ($configFile->checkFileExists()) {
             $this->io->write('- <comment>Configuration file already exists. Skipping generation.</comment>');
@@ -102,95 +106,13 @@ class Scaffolder
      */
     public function installMoodle(): void
     {
-        $installRequested = $this->io->askConfirmation(
-            'Do you want to run the Moodle installer now? (Y/n) ',
-            true,
-        );
+        $installer = new MoodleInstaller($this->composer, $this->io);
 
-        if ($installRequested === false) {
-            $this->io->write('- <comment>Skipping Moodle installer. You can run it later by running:</comment>');
-            $this->io->write('  php admin/cli/install_database.php');
-            return;
-        }
-
-        $this->io->write('');
-        $this->io->write('<info>Launching Moodle installer...</info>');
-
-        if (empty($_ENV['MOODLE_AGREE_LICENSE'])) {
-            // Display the license agreement first.
-            $licenseAgreed = $this->io->askConfirmation(
-                'Do you agree to the GNU General Public License terms? (y/N) ',
-                false,
-            );
-
-            if ($licenseAgreed === false) {
-                $this->io->write('<error>You must agree to the license terms to proceed with the installation.</error>');
-                return;
-            }
-        }
-
-        if (!empty($_ENV['MOODLE_ADMIN_PASSWORD'])) {
-            $adminPassword = $_ENV['MOODLE_ADMIN_PASSWORD'];
-        } else {
-            do {
-                $adminPassword = $this->io->askAndHideAnswer('Enter the password for the admin user: ');
-                $passwordValid = $adminPassword !== null && strlen($adminPassword) >= 6;
-                if ($passwordValid === false) {
-                    $this->io->write('<error>Password must be at least 6 characters long. Please try again.</error>');
-                }
-            } while ($passwordValid === false);
-        }
-
-        if (!empty($_ENV['MOODLE_ADMIN_EMAIL'])) {
-            $adminEmail = $_ENV['MOODLE_ADMIN_EMAIL'];
-        } else {
-            $adminEmail = $this->io->askAndValidate(
-                'Enter the email address for the admin user: ',
-                function ($value): string {
-                    if (empty($value) || !filter_var($value, FILTER_VALIDATE_EMAIL)) {
-                        throw new \RuntimeException('Invalid email address.');
-                    }
-
-                    return $value;
-                },
-            );
-        }
-
-        $defaultShortName = $this->getBaseDirName();
-        $shortName = $this->io->askAndValidate(
-            "Enter the site short name: (default {$defaultShortName}) ",
-            function ($value): string {
-                if (empty($value)) {
-                    throw new \RuntimeException('Site short name cannot be empty.');
-                }
-
-                return $value;
-            },
-            null,
-            $defaultShortName,
-        );
-
-        $installCommand = new Process([
-            PHP_BINARY,
-            'admin/cli/install_database.php',
-            '--agree-license',
-            '--adminpass=' . $adminPassword,
-            '--adminemail=' . $adminEmail,
-            '--shortname=' . $shortName,
-        ], $this->getMoodlePath(), null, null, null);
-
-        $this->io->write('');
-        $this->io->write('<info>Launching Moodle installer...</info>');
-
-        $installCommand->run(function ($type, $buffer) {
-            $this->io->write($buffer, false);
-        });
+        $installer->installMoodle();
     }
 
     /**
      * Generate the Moodle configuration file.
-     *
-     * @return void
      */
     public function generateConfigurationFile(): void
     {
@@ -220,14 +142,25 @@ class Scaffolder
      */
     protected function loadEnvFile(): void
     {
+        if ($this->envLoaded) {
+            return;
+        }
+        $this->envLoaded = true;
+
         $dotenv = new Dotenv();
+
+        $cwd = getcwd();
+        if ($cwd === false) {
+            // Unable to get current working directory to load env files.
+            return;
+        }
 
         // Load from the current working directory.
         $files = [
-            getcwd() . '/.env',
-            getcwd() . '/.env.local',
-            dirname(getcwd()) . '/.env',
-            dirname(getcwd()) . '/.env.local',
+            "{$cwd}/.env",
+            "{$cwd}/.env.local",
+            dirname($cwd) . '/.env',
+            dirname($cwd) . '/.env.local',
         ];
 
         foreach ($files as $file) {

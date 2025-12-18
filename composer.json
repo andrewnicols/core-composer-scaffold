@@ -9,7 +9,8 @@
         "symfony/dotenv": "^7.4"
     },
     "require-dev": {
-        "composer/composer": "^2"
+        "composer/composer": "^2",
+        "phpstan/phpstan": "^2.1"
     },
     "license": "GPL-3.0-or-later",
     "autoload": {
@@ -19,5 +20,10 @@
     },
     "extra": {
         "class": "Moodle\\Composer\\Plugin\\Scaffold\\Plugin"
+    },
+    "scripts": {
+        "test": "@php phpunit",
+        "phpstan": "@php phpstan analyse"
     }
+
 }

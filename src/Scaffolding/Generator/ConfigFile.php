@@ -1,4 +1,5 @@
 <?php
+
 // This file is part of Moodle - http://moodle.org/
 //
 // Moodle is free software: you can redistribute it and/or modify
@@ -23,8 +24,23 @@ use Composer\Util\Filesystem;
  */
 class ConfigFile extends BaseGenerator
 {
-    /** @var array Database configuration */
-    protected array $databaseconfig = [];
+    /** @var string The database type */
+    protected string $dbtype = '';
+
+    /** @var string The database host */
+    protected string $dbhost = '';
+
+    /** @var string The database name */
+    protected string $dbname = '';
+
+    /** @var string The database user */
+    protected string $dbuser = '';
+
+    /** @var string The database password */
+    protected string $dbpass = '';
+
+    /** @var string The database table prefix */
+    protected string $prefix = 'mdl_';
 
     /** @var string The wwwroot URL */
     protected string $wwwroot = '';
@@ -64,42 +80,7 @@ class ConfigFile extends BaseGenerator
     }
 
     /**
-     * Set the database config.
-     *
-     * @param string $dbtype
-     * @param string $dbhost
-     * @param string $dbname
-     * @param string $dbuser
-     * @param string $dbpass
-     * @param string $prefix
-     * @return self
-     */
-    public function setDatabaseConfig(
-        string $dbtype,
-        string $dbhost,
-        string $dbname,
-        string $dbuser,
-        string $dbpass,
-        string $prefix = 'mdl_',
-    ): static {
-        $this->databaseconfig = [
-            'dbtype' => $dbtype,
-            'dbhost' => $dbhost,
-            'dbname' => $dbname,
-            'dbuser' => $dbuser,
-            'dbpass' => $dbpass,
-            'prefix' => $prefix,
-        ];
-
-        return $this;
-    }
-
-    /**
      * Set the site config.
-     *
-     * @param string $wwwroot
-     * @param string $dataroot
-     * @return self
      */
     public function setSiteConfig(
         string $wwwroot,
@@ -126,13 +107,13 @@ class ConfigFile extends BaseGenerator
         global \$CFG;
         \$CFG = new stdClass();
 
-        \$CFG->dbtype    = '{$this->databaseconfig['dbtype']}';
+        \$CFG->dbtype    = '{$this->dbtype}';
         \$CFG->dblibrary = 'native';
-        \$CFG->dbhost    = '{$this->databaseconfig['dbhost']}';
-        \$CFG->dbname    = '{$this->databaseconfig['dbname']}';
-        \$CFG->dbuser    = '{$this->databaseconfig['dbuser']}';
-        \$CFG->dbpass    = '{$this->databaseconfig['dbpass']}';
-        \$CFG->prefix    = '{$this->databaseconfig['prefix']}';
+        \$CFG->dbhost    = '{$this->dbhost}';
+        \$CFG->dbname    = '{$this->dbname}';
+        \$CFG->dbuser    = '{$this->dbuser}';
+        \$CFG->dbpass    = '{$this->dbpass}';
+        \$CFG->prefix    = '{$this->prefix}';
 
         \$CFG->dboptions = array (
           'dbpersist' => 0,
@@ -179,130 +160,145 @@ class ConfigFile extends BaseGenerator
         }
 
         // Database credentials.
-        $this->setDatabaseConfig(
-            dbtype: $this->getDatabaseDriver(),
-            dbuser: $this->getDatabaseUsername(),
-            dbpass: $this->getDatabasePassword(),
-            dbname: $this->getDatabaseName(),
-            dbhost: $this->getDatabaseHost(),
-            prefix: $this->getDatabasePrefix(),
-        );
+        $this->dbtype = $this->getDatabaseDriver();
+        $this->dbuser = $this->getDatabaseUsername();
+        $this->dbpass = $this->getDatabasePassword();
+        $this->dbname = $this->getDatabaseName();
+        $this->dbhost = $this->getDatabaseHost();
+        $this->prefix = $this->getDatabasePrefix();
 
         // Site configuration.
-        $this->setSiteConfig(
-            wwwroot: $this->getWwwRoot(),
-            dataroot: $this->getDataRoot(),
-        );
+        $this->wwwroot = $this->getWwwRoot();
+        $this->dataroot = $this->getDataRoot();
 
+        // Generate the config file.
         $this->generate();
         $this->io->write('Moodle configuration file generated successfully.');
     }
 
     protected function getDatabaseDriver(): string
     {
-        if ($_ENV['MOODLE_DB_DRIVER'] ?? '' !== '') {
-            return $_ENV['MOODLE_DB_DRIVER'];
+        $driver = $this->getEnv('MOODLE_DB_DRIVER');
+        if ($driver === null) {
+            /** @var string */
+            $driver = $this->io->select(
+                'What database driver are you using?',
+                [
+                    'mariadb' => 'MariaDB (mariadb)',
+                    'mysqli' => 'MySQL Improved (mysqli)',
+                    'pgsql' => 'PostgreSQL (pgsql)',
+                    'sqlsrv' => 'Microsoft SQL Server (sqlsrv)',
+                    'auroramysql' => 'Amazon Aurora MySQL (auroramysql)',
+                ],
+                'pgsql',
+            );
         }
 
-        // Ask for site details (site name, admin user, password, etc).
-        return $this->io->select(
-            'What database driver are you using?',
-            [
-                'mariadb' => 'MariaDB (mariadb)',
-                'mysqli' => 'MySQL Improved (mysqli)',
-                'pgsql' => 'PostgreSQL (pgsql)',
-                'sqlsrv' => 'Microsoft SQL Server (sqlsrv)',
-                'auroramysql' => 'Amazon Aurora MySQL (auroramysql)',
-            ],
-            'pgsql',
-        );
+        return $driver;
     }
 
     protected function getDatabaseUsername(): string
     {
-        if ($_ENV['MOODLE_DB_USERNAME'] ?? '' !== '') {
-            return $_ENV['MOODLE_DB_USERNAME'];
+        $username = $this->getEnv('MOODLE_DB_USERNAME');
+        if ($username === null) {
+            /** @var string */
+            $username = $this->io->ask('Enter the database username: ') ?? '';
         }
 
-        return $this->io->askAndHideAnswer('Enter the database username: ') ?? '';
+        return $username;
     }
 
     protected function getDatabasePassword(): string
     {
-        if ($_ENV['MOODLE_DB_PASSWORD'] ?? '' !== '') {
-            return $_ENV['MOODLE_DB_PASSWORD'];
+        $password = $this->getEnv('MOODLE_DB_PASSWORD');
+        if ($password === null) {
+            /** @var string */
+            $password = $this->io->askAndHideAnswer('Enter the database password: ') ?? '';
         }
 
-        return $this->io->askAndHideAnswer('Enter the database password: ') ?? '';
+        return $password;
     }
 
     protected function getDatabaseName(): string
     {
         $default = $this->getBaseDirName();
 
-        return $this->io->askAndValidate(
-            "Enter the database name (default {$default}): ",
-            function ($answer)  {
-                if (empty($answer)) {
-                    throw new \RuntimeException('Database name cannot be empty.');
-                }
-                return $answer;
-            },
-            null,
-            $default,
-        );
+        $dbname = $this->getEnv('MOODLE_DB_NAME');
+        if ($dbname === null) {
+            /** @var string */
+            $dbname = $this->io->askAndValidate(
+                "Enter the database name (default {$default}): ",
+                function ($answer)  {
+                    if (empty($answer)) {
+                        throw new \RuntimeException('Database name cannot be empty.');
+                    }
+                    return $answer;
+                },
+                null,
+                $default,
+            );
+        }
+
+        return $dbname;
     }
 
     protected function getDatabaseHost(): string
     {
-        if ($_ENV['MOODLE_DB_HOST'] ?? '' !== '') {
-            return $_ENV['MOODLE_DB_HOST'];
+        $host = $this->getEnv('MOODLE_DB_HOST');
+        if ($host === null) {
+            /** @var string */
+            $host = $this->io->ask('Enter the database host (default: localhost): ', 'localhost');
         }
 
-        return $this->io->ask('Enter the database host (default: localhost): ', 'localhost');
+        return $host;
     }
 
     protected function getDatabasePrefix(): string
     {
-        if ($_ENV['MOODLE_DB_PREFIX'] ?? '' !== '') {
-            return $_ENV['MOODLE_DB_PREFIX'];
+        $prefix = $this->getEnv('MOODLE_DB_PREFIX');
+        if ($prefix === null) {
+            /** @var string */
+            $prefix = $this->io->ask('Enter the database table prefix (default: mdl_): ', 'mdl_');
         }
 
-        return $this->io->ask('Enter the database table prefix (default: mdl_): ', 'mdl_');
+        return $prefix;
     }
 
     protected function getWwwRoot(): string
     {
-        if ($_ENV['MOODLE_WWWROOT'] ?? '' !== '') {
-            $wwwroot = rtrim($_ENV['MOODLE_WWWROOT'], '/');
-
-            $wwwroot = str_replace('[NAME]', $this->getBaseDirName(), $wwwroot);
-
-            return $wwwroot;
+        $wwwroot = $this->getEnv('MOODLE_WWWROOT');
+        if ($wwwroot === null) {
+            /** @var string */
+            $wwwroot = $this->io->askAndValidate(
+                'Enter the web root URL (for example, https://moodle.example.com): ',
+                function ($answer) {
+                    if (empty($answer) || !filter_var($answer, FILTER_VALIDATE_URL)) {
+                        throw new \RuntimeException('Please enter a valid URL for the web root.');
+                    }
+                    return rtrim($answer, '/');
+                },
+            );
         }
 
-        return $this->io->askAndValidate(
-            'Enter the web root URL (for example, https://moodle.example.com): ',
-            function ($answer) {
-                if (empty($answer) || !filter_var($answer, FILTER_VALIDATE_URL)) {
-                    throw new \RuntimeException('Please enter a valid URL for the web root.');
-                }
-                return rtrim($answer, '/');
-            },
-        );
+        $wwwroot = rtrim($wwwroot, '/');
+        $wwwroot = str_replace('[NAME]', $this->getBaseDirName(), $wwwroot);
+
+        return $wwwroot;
     }
 
     protected function getDataRoot(): string
     {
-        if ($_ENV['MOODLE_DATAROOT'] ?? '' !== '') {
-            $dataroot = rtrim($_ENV['MOODLE_DATAROOT'], '/');
-            $dataroot = str_replace('[NAME]', $this->getBaseDirName(), $dataroot);
-        } else {
+        $dataroot = $this->getEnv('MOODLE_DATAROOT');
+        if ($dataroot === null) {
+            /** @var string */
             $dataroot = $this->io->ask(
                 'Enter the Moodle data directory path (default: data): ',
                 'data'
             );
         }
+        $dataroot = rtrim($dataroot, '/');
+        $dataroot = str_replace('[NAME]', $this->getBaseDirName(), $dataroot);
+
 
         $filesystem = new Filesystem();
         if ($filesystem->isAbsolutePath($dataroot) === false) {
@@ -311,9 +307,30 @@ class ConfigFile extends BaseGenerator
         $dataroot = $filesystem->normalizePath($dataroot);
 
         $filesystem->ensureDirectoryExists($dataroot);
-        $permissions = octdec(2777);
+        /** @var int */
+        $permissions = octdec('2777');
         chmod($dataroot, $permissions);
 
         return $dataroot;
+    }
+
+    /**
+     * Fetch environment var as a string.
+     */
+    protected function getEnv(string $name): ?string
+    {
+        if (array_key_exists($name, $_ENV) === false) {
+            return null;
+        }
+
+        if (!is_string($_ENV[$name])) {
+            return null;
+        }
+
+        if ($_ENV[$name] !== '') {
+            return null;
+        }
+
+        return $_ENV[$name];
     }
 }
