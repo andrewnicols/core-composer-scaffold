@@ -71,8 +71,9 @@ class Scaffolder
         $this->io->write($this->asciiHeader());
         $this->io->write('<info>Scaffolding Moodle core files...</info>');
 
-        // Generate the Moodle Configuration Shim file.
+        // Generate the Moodle Shim files.
         (new Generator\ShimConfigFile($this->composer, $this->io))->generate();
+        (new Generator\ShimBinMoodleFile($this->composer, $this->io))->generate();
 
         // Attempt to generate the Moodle configuration file.
         $configFile = new Generator\ConfigFile($this->composer, $this->io);
