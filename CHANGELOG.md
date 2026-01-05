@@ -7,6 +7,8 @@ The format of this change log follows the advice given at [Keep a CHANGELOG](htt
 
 ## [Unreleased]
 
+## [0.2.0] - 2026-01-05
+
 ### Added
 
 - Add the msh command to the project `.gitignore`.
