@@ -52,9 +52,9 @@ abstract class BaseGenerator
     /**
      * Add a path to the .gitignore.
      *
-     * @param string $path
-     * @param string $description
-     * @param mixed $reason
+     * @param string $path The path to ignore.
+     * @param string $description A short description of the file to be ignored.
+     * @param string|null $reason The reason that this file is ignored.
      */
     protected function addGitIgnore(
         string $path,
@@ -70,7 +70,7 @@ abstract class BaseGenerator
         $fullentry .= $entry;
 
         if (file_exists($gitignorepath)) {
-            $currentcontent = file_get_contents($gitignorepath);
+            $currentcontent = file_get_contents($gitignorepath) ?: '';
             if (strpos($currentcontent, $entry) !== false) {
                 $this->io->debug("{$path} is already in .gitignore");
                 return;
