@@ -166,9 +166,13 @@ class MoodleInstaller
 
         foreach ($licenseFilePaths as $licenseFilePath) {
             if (is_readable($licenseFilePath)) {
-                $string = [];
                 include $licenseFilePath;
-                if (isset($string['gpl3'])) {
+                if (
+                    isset($string)
+                    && is_array($string)
+                    && array_key_exists('gpl3', $string)
+                    && is_string($string['gpl3'])
+                ) {
                     return $string['gpl3'];
                 }
             }
