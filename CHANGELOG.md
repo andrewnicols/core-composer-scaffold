@@ -7,6 +7,11 @@ The format of this change log follows the advice given at [Keep a CHANGELOG](htt
 
 ## [Unreleased]
 
+### Fixed
+
+- Make the composer autoload more fault tolerant and always return the Composer autoloader as the upstream autoloader does.
+- Load the composer autoload shim in the Moodle config.php shim.
+
 ## [1.0.2] - 2026-01-21
 
 ### Fixed

@@ -48,14 +48,9 @@ class ShimComposerAutoloadFile extends BaseGenerator
         $filesystem = new Filesystem();
 
         if ($filesystem->isSymlinkedDirectory($this->getMoodlePath())) {
-            $installRoot = sprintf("'%s'", $this->getRootPackagePath());
+            $installRoot = sprintf("'%s'", $filesystem->normalizePath($this->getRootPackagePath()));
         } else {
-            $generatedConfigPath = $this->getMoodlePath() . '/config.php';
-            $installRoot = $this->calculateRelativePath(
-                $generatedConfigPath,
-                $this->getRootPackagePath(),
-            );
-            $installRoot = sprintf("__DIR__ . '/%s'", $installRoot);
+            $installRoot = "dirname(__DIR__, 2)";
         }
 
         return <<<TEMPLATE
@@ -70,7 +65,24 @@ class ShimComposerAutoloadFile extends BaseGenerator
          */
 
         \$installRoot = {$installRoot};
-        return require_once(\$installRoot . '/vendor/autoload.php');
+
+        require_once(\$installRoot . '/vendor/autoload.php');
+
+        \$loaders = \Composer\Autoload\ClassLoader::getRegisteredLoaders();
+
+        \$vendorkey = \$installRoot . '/vendor';
+
+        if (array_key_exists(\$vendorkey, \$loaders) === false) {
+            if (count(\$loaders) === 1) {
+                // Fallback for single-vendor installations.
+                \$loaders = array_values(\$loaders);
+                return \$loaders[0];
+            } else {
+                throw new \RuntimeException('Could not find Composer autoloader for Moodle installation.');
+            }
+        }
+
+        return \$loaders[\$vendorkey];
 
         TEMPLATE;
     }

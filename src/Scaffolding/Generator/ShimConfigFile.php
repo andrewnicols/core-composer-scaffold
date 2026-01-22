@@ -92,7 +92,7 @@ class ShimConfigFile extends BaseGenerator
 
         \$installRoot = {$installRoot};
         \$result = require_once(\$installRoot . '/config.php');
-        require_once(\$installRoot . '/vendor/autoload.php');
+        require_once(__DIR__ . '/vendor/autoload.php');
         require_once(__DIR__ . '/public/lib/setup.php');
 
         return \$result;
